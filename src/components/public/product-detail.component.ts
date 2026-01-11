@@ -1,6 +1,7 @@
+
 import { Component, inject, computed, signal, effect, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink, ParamMap } from '@angular/router';
-import { SupabaseService, Review } from '../../services/supabase.service';
+import { SupabaseService, Review, Product } from '../../services/supabase.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -153,7 +154,7 @@ export class ProductDetailComponent {
   // FIX: Explicitly type ActivatedRoute
   route: ActivatedRoute = inject(ActivatedRoute);
 
-  productId = toSignal(this.route.paramMap.pipe(map((params: ParamMap) => params.get('id'))));
+  productId = toSignal<string | null>(this.route.paramMap.pipe(map((params: ParamMap) => params.get('id'))));
   
   product = computed(() => {
     const id = this.productId();
@@ -185,8 +186,10 @@ export class ProductDetailComponent {
   showReviewForm = false;
   newReview = { user: '', rating: 5, comment: '' };
 
-  trackConversion(p: any) {
-      this.supabase.trackEvent('affiliate_click', p.affiliateLink, p.id);
+  trackConversion(p: Product) {
+      if (p.affiliateLink) {
+        this.supabase.trackEvent('affiliate_click', p.affiliateLink, p.id);
+      }
   }
 
   submitReview() {

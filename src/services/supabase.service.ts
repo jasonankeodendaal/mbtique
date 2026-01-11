@@ -118,7 +118,7 @@ export interface Review {
   date: string;
 }
 
-// --- SEED CONSTANTS (Strictly for Seeding) ---
+// --- SEED CONSTANTS (Strictly for Seeding - Not for fallback) ---
 const SEED_SETTINGS: Settings = {
   id: 'global_settings',
   siteName: "MAISON PORTAL",
@@ -240,7 +240,7 @@ export class SupabaseService {
   isAdmin = signal<boolean>(false);
   currentUser = signal<AdminUser | null>(null);
 
-  // Data Signals (Default null to enforce fetching)
+  // Data Signals (Default null/empty to enforce fetching - NO local fallback)
   settings = signal<Settings | null>(null);
   pages = signal<PageContent[]>([]);
   products = signal<Product[]>([]);
@@ -311,7 +311,7 @@ export class SupabaseService {
     
     this.currentUser.set(user);
     this.isAdmin.set(true);
-    // Refresh data on auth change
+    // Refresh data on auth change if system is ready
     if(this.systemStatus() === 'READY') this.fetchAllData(); 
   }
 
@@ -358,44 +358,70 @@ export class SupabaseService {
   private async bootSystem() {
     this.connectionError.set(null);
     try {
-      // 1. Check if we have settings. If not, the DB is likely empty.
+      // "Supabase Hard-Link": Check if DB is reachable and has data.
+      // We check 'settings' table. 
       const { data: settingsData, error } = await this.supabase!.from('settings').select('*').limit(1);
       
-      if (error || !settingsData || settingsData.length === 0) {
-         console.warn("SYSTEM: Database empty or unreachable. attempting Auto-Seed.");
-         // Only seed if fetch worked but returned empty. If error, throw.
-         if (settingsData && settingsData.length === 0) {
-            await this.performAutoSeed();
-         } else {
-            throw error || new Error("Connection failed");
-         }
-      } else {
+      // Handle "Empty Database" (First Deployment)
+      if (settingsData && settingsData.length === 0) {
+         console.warn("SYSTEM: Database connected but empty. Triggering Auto-Seed.");
+         await this.seedDatabase(); // Auto-Seed strictly if table exists but empty
+      } 
+      // Handle Error (Table doesn't exist or connection failed)
+      else if (error) {
+         console.error("SYSTEM: Database Check Failed", error);
+         throw error;
+      } 
+      // Handle Success (Data exists)
+      else {
          await this.fetchAllData();
          this.systemStatus.set('READY');
       }
     } catch (err: any) {
       console.error("SYSTEM: Boot Failed", err);
-      this.connectionError.set(err.message || 'Failed to connect to Supabase');
+      // Determine if it's a "missing table" error which implies SQL hasn't been run
+      if (err.message && (err.message.includes('relation') || err.message.includes('does not exist'))) {
+         this.connectionError.set('Database Schema Missing. Please run the SQL Setup Script.');
+      } else {
+         this.connectionError.set(err.message || 'Failed to connect to Supabase');
+      }
       this.systemStatus.set('CONNECTION_ERROR');
     }
   }
 
   // --- SEEDING (One-Way) ---
-  private async performAutoSeed() {
+  // Renamed from performAutoSeed to seedDatabase as per spec
+  public async seedDatabase() {
+    if (!this.supabase) return;
+    
     this.systemStatus.set('SEEDING');
     this.seedingStatus.set('Initializing Cloud Vault...');
+    
     try {
-      // Order matters for relational integrity
-      await this.supabase!.from('settings').insert(SEED_SETTINGS);
+      // 1. Settings
+      await this.supabase.from('settings').upsert(SEED_SETTINGS);
       
+      // 2. Pages
       this.seedingStatus.set('Seeding CMS Content...');
-      await this.supabase!.from('pages').insert(SEED_PAGES);
+      // Clean insert - in a real scenario we might check existence, but upsert on ID/Slug is safer
+      for (const page of SEED_PAGES) {
+         await this.supabase.from('pages').upsert(page, { onConflict: 'slug' });
+      }
 
-      await this.supabase!.from('categories').insert(SEED_CATEGORIES);
-      await this.supabase!.from('hero_slides').insert(SEED_SLIDES);
-      await this.supabase!.from('products').insert(SEED_PRODUCTS);
+      // 3. Categories
+      for (const cat of SEED_CATEGORIES) {
+        await this.supabase.from('categories').upsert(cat, { onConflict: 'id' });
+      }
 
+      // 4. Slides
+      await this.supabase.from('hero_slides').upsert(SEED_SLIDES); // Assuming IDs are seeded
+
+      // 5. Products
+      await this.supabase.from('products').upsert(SEED_PRODUCTS); // Assuming IDs are seeded
+
+      // After seeding, fetch everything to ensure State matches Cloud
       await this.fetchAllData();
+      
       this.seedingStatus.set(null);
       this.systemStatus.set('READY');
     } catch (err: any) {
@@ -407,8 +433,8 @@ export class SupabaseService {
 
   async forceResync() {
     if (!this.supabase) return;
-    if (confirm('WARNING: This will attempt to re-seed default data. Continue?')) {
-        await this.performAutoSeed();
+    if (confirm('WARNING: This will rewrite default data to the cloud. Continue?')) {
+        await this.seedDatabase();
     }
   }
 
@@ -435,13 +461,14 @@ export class SupabaseService {
         if (reviews.data) this.reviews.set(reviews.data);
         if (analytics.data) this.analytics.set(analytics.data);
 
+        // Fetch Messages if Admin
         if (this.isAdmin()) {
             const { data: msgs } = await this.supabase.from('messages').select('*').order('date', { ascending: false });
             if (msgs) this.messages.set(msgs);
         }
     } catch (err) {
         console.error("Fetch Error", err);
-        throw err; // Propagate to bootSystem
+        throw err; // Propagate to bootSystem to trigger error state
     }
   }
 
@@ -455,9 +482,12 @@ export class SupabaseService {
   // --- CRUD OPERATIONS ---
   
   async updateSettings(newSettings: Partial<Settings>) {
-      const updated = { ...this.settings(), ...newSettings } as Settings;
-      this.settings.set(updated);
-      if (this.supabase) await this.supabase.from('settings').update(newSettings).eq('id', this.settings()!.id);
+      const current = this.settings();
+      if (!current) return;
+      
+      const updated = { ...current, ...newSettings } as Settings;
+      this.settings.set(updated); // Optimistic Update
+      if (this.supabase) await this.supabase.from('settings').update(newSettings).eq('id', current.id);
   }
 
   async updatePage(slug: string, updates: Partial<PageContent>) {

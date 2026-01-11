@@ -1,3 +1,4 @@
+
 import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SupabaseService, Product, Settings, Message, Category, AdminUser, PageContent } from '../../services/supabase.service';
@@ -167,15 +168,6 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
                               Go to your Supabase Project -> SQL Editor -> New Query. Paste the code below and run it to create your entire backend instantly.
                            </div>
                         </div>
-                        <div class="w-full md:w-1/3 flex items-center justify-center bg-stone-50 rounded-lg p-6 relative overflow-hidden">
-                           <!-- Animated Database Illustration -->
-                           <div class="relative w-20 h-24">
-                              <div class="absolute inset-x-0 bottom-0 h-8 bg-stone-300 rounded-[50%] border-2 border-stone-400 z-10"></div>
-                              <div class="absolute inset-x-0 bottom-4 h-8 bg-stone-300 rounded-[50%] border-2 border-stone-400 z-20 animate-bounce-slow"></div>
-                              <div class="absolute inset-x-0 bottom-8 h-8 bg-stone-300 rounded-[50%] border-2 border-stone-400 z-30 animate-bounce-slow delay-75"></div>
-                              <div class="absolute inset-x-0 top-0 h-8 bg-green-400 rounded-[50%] border-2 border-green-600 z-40 animate-pulse"></div>
-                           </div>
-                        </div>
                      </div>
 
                      <div class="relative bg-stone-900 rounded-lg p-4 overflow-x-auto text-xs font-mono text-green-400 shadow-inner">
@@ -184,110 +176,6 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
                      </div>
                   </div>
                </div>
-
-               <!-- Phase 2: Authentication -->
-               <div class="bg-white rounded-xl shadow-lg border border-stone-200 overflow-hidden mb-12">
-                  <div class="bg-stone-900 p-6 flex items-center justify-between text-white">
-                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-blue-500 text-stone-900 font-bold flex items-center justify-center text-xl">2</div>
-                        <h2 class="text-xl font-bold uppercase tracking-widest">Authentication & Security</h2>
-                     </div>
-                     <span class="text-xs uppercase tracking-widest text-stone-400">Google OAuth + Email</span>
-                  </div>
-                  <div class="p-8">
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                           <h3 class="text-lg font-serif font-bold mb-4">Email Login Setup</h3>
-                           <ol class="list-decimal pl-5 space-y-2 text-sm text-stone-600 font-medium">
-                              <li>In Supabase, go to <strong>Authentication -> Providers</strong>.</li>
-                              <li>Enable <strong>Email</strong>. Disable "Confirm email" if you want instant access for testing.</li>
-                              <li>Go to <strong>Authentication -> Users</strong> and create your admin account (e.g., <code>admin@maison.com</code>).</li>
-                              <li class="tip-box mt-2">Make sure to verify your email or disable confirmation, otherwise you cannot login.</li>
-                           </ol>
-                        </div>
-                        <div>
-                           <h3 class="text-lg font-serif font-bold mb-4">Google OAuth (Optional)</h3>
-                           <ol class="list-decimal pl-5 space-y-2 text-sm text-stone-600 font-medium">
-                              <li>Go to Google Cloud Console -> Create Project.</li>
-                              <li>Setup OAuth Consent Screen (External).</li>
-                              <li>Create Credentials -> OAuth Client ID (Web Application).</li>
-                              <li>Add Authorized Redirect URI: <code>https://&lt;project-ref&gt;.supabase.co/auth/v1/callback</code>.</li>
-                              <li>Copy Client ID & Secret to Supabase -> Auth -> Google.</li>
-                           </ol>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-
-               <!-- Phase 3: Communication (EmailJS) -->
-               <div class="bg-white rounded-xl shadow-lg border border-stone-200 overflow-hidden mb-12">
-                  <div class="bg-stone-900 p-6 flex items-center justify-between text-white">
-                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-yellow-500 text-stone-900 font-bold flex items-center justify-center text-xl">3</div>
-                        <h2 class="text-xl font-bold uppercase tracking-widest">Concierge System</h2>
-                     </div>
-                     <span class="text-xs uppercase tracking-widest text-stone-400">Powered by EmailJS</span>
-                  </div>
-                  <div class="p-8">
-                     <p class="text-sm text-stone-600 mb-6 font-medium">
-                        To receive "Contact Us" messages directly to your inbox, we use EmailJS. It's free and requires no backend server.
-                     </p>
-                     
-                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="lg:col-span-1 space-y-4">
-                           <div class="step-card">
-                              <span class="step-num">01</span>
-                              <p>Create Account at <a href="https://www.emailjs.com" target="_blank" class="underline hover:text-yellow-600">emailjs.com</a>.</p>
-                           </div>
-                           <div class="step-card">
-                              <span class="step-num">02</span>
-                              <p>Add "Email Service" (e.g., Gmail).</p>
-                           </div>
-                           <div class="step-card">
-                              <span class="step-num">03</span>
-                              <p>Create "Email Template". Use the code on the right.</p>
-                           </div>
-                        </div>
-                        <div class="lg:col-span-2">
-                           <div class="relative bg-stone-100 p-4 rounded border border-stone-200 font-mono text-xs">
-                              <button (click)="copyToClipboard(emailTemplate)" class="absolute top-2 right-2 text-[9px] uppercase font-bold bg-white px-2 py-1 border border-stone-300 rounded hover:bg-stone-50">Copy HTML</button>
-                              <div class="text-stone-500 mb-2">// EmailJS Template Editor (HTML Mode)</div>
-                              <pre class="whitespace-pre-wrap text-stone-800">{{ emailTemplate }}</pre>
-                           </div>
-                        </div>
-                     </div>
-                     
-                     <div class="tip-box mt-6">
-                        Once you have your <strong>Service ID</strong>, <strong>Template ID</strong>, and <strong>Public Key</strong>, go to the <strong>Identity -> Settings</strong> tab in this dashboard to save them.
-                     </div>
-                  </div>
-               </div>
-
-               <!-- Phase 4: Deployment -->
-               <div class="bg-white rounded-xl shadow-lg border border-stone-200 overflow-hidden mb-12">
-                   <div class="bg-stone-900 p-6 flex items-center justify-between text-white">
-                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-purple-500 text-stone-900 font-bold flex items-center justify-center text-xl">4</div>
-                        <h2 class="text-xl font-bold uppercase tracking-widest">Global Launch</h2>
-                     </div>
-                     <span class="text-xs uppercase tracking-widest text-stone-400">Vercel & Environment</span>
-                  </div>
-                  <div class="p-8">
-                     <p class="mb-6 font-medium text-stone-600">Final step. When deploying to Vercel, you must set these Environment Variables.</p>
-                     
-                     <div class="bg-stone-50 border border-stone-200 rounded-lg p-4 space-y-3 font-mono text-sm">
-                        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-stone-200 pb-2">
-                           <span class="font-bold text-stone-700">SUPABASE_URL</span>
-                           <span class="text-stone-400">Project Settings -> API -> URL</span>
-                        </div>
-                        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-stone-200 pb-2">
-                           <span class="font-bold text-stone-700">SUPABASE_KEY</span>
-                           <span class="text-stone-400">Project Settings -> API -> anon public</span>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-
             </div>
          }
 
@@ -335,13 +223,13 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
             </div>
          }
 
-         <!-- TAB: SYSTEM STATUS (Upgraded) -->
+         <!-- TAB: SYSTEM STATUS -->
          @if (activeTab() === 'system') {
             <div class="max-w-6xl mx-auto p-8 animate-fade-in pb-32">
                 <h2 class="font-serif text-3xl text-stone-900 italic mb-8">System Health & Diagnostics</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Card 1: Connection -->
+                    <!-- Connection Metrics -->
                     <div class="bg-white p-8 rounded-lg shadow-sm border border-stone-200">
                        <h3 class="text-xs font-bold uppercase tracking-widest text-stone-500 mb-6 flex items-center gap-2">
                           <span class="w-2 h-2 bg-green-500 rounded-full"></span> Supabase Connection
@@ -359,14 +247,10 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
                              <span class="text-sm font-bold text-stone-700">Project URL</span>
                              <span class="text-sm font-mono text-stone-500">https://{{ getMaskedUrl() }}</span>
                           </div>
-                          <div class="flex justify-between items-center pb-1">
-                             <span class="text-sm font-bold text-stone-700">Latency</span>
-                             <span class="text-sm font-mono text-green-600">~24ms</span>
-                          </div>
                        </div>
                     </div>
 
-                    <!-- Card 2: Data Health -->
+                    <!-- Database Metrics -->
                     <div class="bg-white p-8 rounded-lg shadow-sm border border-stone-200">
                         <h3 class="text-xs font-bold uppercase tracking-widest text-stone-500 mb-6 flex items-center gap-2">
                            <svg class="w-4 h-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
@@ -381,73 +265,23 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
                                 <span class="block text-2xl font-serif text-stone-900">{{ supabase.categories().length }}</span>
                                 <span class="text-[9px] uppercase tracking-widest text-stone-500 font-bold">Categories</span>
                             </div>
-                            <div class="p-4 bg-stone-50 rounded border border-stone-100 text-center">
-                                <span class="block text-2xl font-serif text-stone-900">{{ supabase.messages().length }}</span>
-                                <span class="text-[9px] uppercase tracking-widest text-stone-500 font-bold">Messages</span>
-                            </div>
-                            <div class="p-4 bg-stone-50 rounded border border-stone-100 text-center">
-                                <span class="block text-2xl font-serif text-stone-900">{{ supabase.reviews().length }}</span>
-                                <span class="text-[9px] uppercase tracking-widest text-stone-500 font-bold">Reviews</span>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Card 3: Storage Assets -->
-                    <div class="bg-white p-8 rounded-lg shadow-sm border border-stone-200">
-                        <h3 class="text-xs font-bold uppercase tracking-widest text-stone-500 mb-6 flex items-center gap-2">
-                           <svg class="w-4 h-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                           Asset Storage
-                        </h3>
-                        <div class="space-y-4">
-                           <div class="flex justify-between items-center">
-                              <span class="text-sm font-bold text-stone-700">Bucket: maison-assets</span>
-                              <span class="px-2 py-0.5 bg-green-100 text-green-800 text-[10px] uppercase font-bold rounded">Public Access</span>
-                           </div>
-                           <div class="w-full bg-stone-100 rounded-full h-2 overflow-hidden">
-                              <div class="bg-yellow-500 h-2 w-1/4 rounded-full"></div>
-                           </div>
-                           <p class="text-[10px] text-stone-400 font-bold uppercase tracking-widest text-right">Usage Estimate: 24%</p>
-                        </div>
-                    </div>
-
-                    <!-- Card 4: Third Party -->
-                    <div class="bg-white p-8 rounded-lg shadow-sm border border-stone-200">
-                        <h3 class="text-xs font-bold uppercase tracking-widest text-stone-500 mb-6 flex items-center gap-2">
-                           <svg class="w-4 h-4 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
-                           Integrations
-                        </h3>
-                         <div class="space-y-4">
-                            <div class="flex justify-between items-center border-b border-stone-100 pb-2">
-                               <div class="flex items-center gap-2">
-                                  <div class="w-2 h-2 rounded-full" [class.bg-green-500]="supabase.settings()?.emailJsPublicKey" [class.bg-red-500]="!supabase.settings()?.emailJsPublicKey"></div>
-                                  <span class="text-sm font-bold text-stone-700">EmailJS</span>
-                               </div>
-                               <span class="text-[10px] text-stone-400 font-mono">{{ supabase.settings()?.emailJsPublicKey ? 'ACTIVE' : 'INACTIVE' }}</span>
-                            </div>
-                            <div class="flex justify-between items-center pb-1">
-                               <div class="flex items-center gap-2">
-                                  <div class="w-2 h-2 rounded-full" [class.bg-green-500]="supabase.settings()?.googleAnalyticsId" [class.bg-gray-300]="!supabase.settings()?.googleAnalyticsId"></div>
-                                  <span class="text-sm font-bold text-stone-700">Google Analytics</span>
-                               </div>
-                               <span class="text-[10px] text-stone-400 font-mono">{{ supabase.settings()?.googleAnalyticsId || 'NOT SET' }}</span>
-                            </div>
-                         </div>
-                    </div>
-                    
+                    <!-- Force Re-Sync -->
                     <div class="col-span-1 md:col-span-2 text-center mt-8">
                         <button (click)="supabase.forceResync()" class="text-red-400 hover:text-red-600 text-xs font-bold uppercase tracking-widest border border-red-200 px-6 py-3 rounded hover:bg-red-50 transition-colors">
                            Force Re-Sync / Seed Database
                         </button>
-                        <p class="text-[9px] text-stone-400 mt-2">Only use if database is corrupted or empty.</p>
+                        <p class="text-[9px] text-stone-400 mt-2">Only use if database is corrupted or empty. Writes default data to cloud.</p>
                     </div>
 
                 </div>
             </div>
          }
 
-         <!-- OTHER TABS (Depts, CMS, etc.) - Content preserved but markup adapted to container -->
+         <!-- OTHER TABS (Depts, CMS, etc.) -->
          @if (activeTab() === 'depts') {
-             <!-- Depts Content -->
              <div class="p-8 animate-fade-in max-w-7xl mx-auto">
                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                   @for(cat of supabase.categories(); track cat.id) {
@@ -473,7 +307,6 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
          }
          
          @if (activeTab() === 'about_cms' || activeTab() === 'contact_cms' || activeTab() === 'canvas') {
-             <!-- Reuse existing CMS layout blocks -->
              @if (activeTab() === 'about_cms') {
                 <div class="max-w-4xl mx-auto p-8 pb-32 animate-fade-in">
                    <div class="space-y-8 bg-white p-8 border border-stone-200 rounded-lg shadow-sm">
@@ -538,7 +371,7 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
 
       </main>
 
-      <!-- MODALS (Product, Category) reused identically from before -->
+      <!-- MODALS (Product, Category) -->
       @if (isProductModalOpen) {
          <div class="fixed inset-0 z-50 overflow-hidden" (click)="isProductModalOpen = false">
             <div class="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"></div>
@@ -644,15 +477,12 @@ type Tab = 'dashboard' | 'inbox' | 'catalog' | 'visuals' | 'depts' | 'about_cms'
     @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
     .animate-fade-in { animation: fadeIn 0.4s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-bounce-slow { animation: bounceSlow 3s infinite; }
-    @keyframes bounceSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
     
     .shadow-glow { box-shadow: 0 0 15px rgba(217, 119, 6, 0.4); }
   `]
 })
 export class AdminLayoutComponent {
   supabase = inject(SupabaseService);
-  // FIX: Explicitly type Router
   router: Router = inject(Router);
 
   activeGroup = signal<TabGroup>('engine');
@@ -683,9 +513,9 @@ export class AdminLayoutComponent {
   tempSettings: Settings = { siteName: '', heroTitle: '', heroSubtitle: '', curatorName: '', curatorBio: '', curatorImage: '', contactEmail: '', themePrimaryColor: '', themeSecondaryColor: '', themeFontHeading: '', themeFontBody: '' };
   
   isUploading = false;
-  showSlideForm = false; // Kept for interface compatibility
+  showSlideForm = false;
   
-  // Guide Templates
+  // Guide Templates - Verified against SEED_CONSTANTS
   sqlTemplate = `
 -- 1. SETTINGS
 create table settings (
@@ -778,24 +608,6 @@ insert into storage.buckets (id, name, public) values ('maison-assets', 'maison-
 create policy "Public Access Assets" on storage.objects for select using ( bucket_id = 'maison-assets' );
 create policy "Admin Upload Assets" on storage.objects for insert using ( bucket_id = 'maison-assets' and auth.role() = 'authenticated' );
 `.trim();
-
-  emailTemplate = `
-<div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-  <h2 style="color: #d97706;">New Inquiry from {{name}}</h2>
-  <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-  
-  <p><strong>Subject:</strong> {{subject}}</p>
-  <p><strong>Email:</strong> {{email}}</p>
-  
-  <div style="background: #f9f9f9; padding: 15px; border-left: 4px solid #d97706; margin-top: 20px;">
-    <p style="margin: 0; font-style: italic;">"{{message}}"</p>
-  </div>
-  
-  <p style="margin-top: 30px; font-size: 12px; color: #999;">
-    Sent via Maison Portal Concierge
-  </p>
-</div>
-  `.trim();
 
   constructor() {
     if (!this.supabase.isAdmin()) this.router.navigate(['/login']);
