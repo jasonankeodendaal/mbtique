@@ -34,13 +34,13 @@ export interface Product {
   title: string;
   price: number;
   originalPrice?: number;
-  discountLabel?: string; // e.g., "20% OFF"
+  discountLabel?: string;
   description: string;
   category: string;
   subCategory?: string;
   image: string; 
   images?: string[]; 
-  videoUrl?: string; // YouTube or MP4 link
+  videoUrl?: string;
   colors?: string[]; 
   sku?: string;
   affiliateLink: string;
@@ -55,7 +55,7 @@ export interface Category {
   slug: string;
   image: string;
   count: number;
-  subCategories: string[]; // e.g. ["Dresses", "Tops"]
+  subCategories: string[];
 }
 
 export interface HeroSlide {
@@ -67,20 +67,18 @@ export interface HeroSlide {
   ctaLink: string;
 }
 
-// New Interface for CMS Pages (About, Contact)
 export interface PageContent {
   id?: string;
   slug: 'about' | 'contact';
   title: string;
   heroImage: string;
   introText: string;
-  bodyContent: string; // Rich text or long description
-  metaData: any; // Flexible JSON for specific page fields (e.g., signature image, values list)
+  bodyContent: string;
+  metaData: any;
 }
 
 export interface Settings {
   id?: string; 
-  // Identity
   siteName: string;
   heroTitle: string;
   heroSubtitle: string;
@@ -88,18 +86,12 @@ export interface Settings {
   curatorBio: string;
   curatorImage: string;
   contactEmail: string;
-  
-  // Theme Engine
   themePrimaryColor: string; 
   themeSecondaryColor: string;
   themeFontHeading: string;
   themeFontBody: string;
-  
-  // Social
   socialInstagram?: string;
   socialTiktok?: string;
-  
-  // Integrations
   googleAnalyticsId?: string;
   emailJsPublicKey?: string;
   emailJsServiceId?: string;
@@ -126,7 +118,7 @@ export interface Review {
   date: string;
 }
 
-// --- SEED CONSTANTS (Local Fallback) ---
+// --- SEED CONSTANTS (Strictly for Seeding) ---
 const SEED_SETTINGS: Settings = {
   id: 'global_settings',
   siteName: "MAISON PORTAL",
@@ -233,19 +225,22 @@ const SEED_PRODUCTS: Product[] = [
   }
 ];
 
+export type SystemStatus = 'INITIALIZING' | 'READY' | 'MISSING_KEYS' | 'CONNECTION_ERROR' | 'SEEDING';
+
 @Injectable({
   providedIn: 'root'
 })
 export class SupabaseService {
   private supabase: SupabaseClient | null = null;
   
-  // Core State
-  initialized = signal<boolean>(false);
+  // Core System State
+  systemStatus = signal<SystemStatus>('INITIALIZING');
+  
+  // Auth State
   isAdmin = signal<boolean>(false);
   currentUser = signal<AdminUser | null>(null);
-  isOfflineMode = signal<boolean>(false);
 
-  // Data Signals
+  // Data Signals (Default null to enforce fetching)
   settings = signal<Settings | null>(null);
   pages = signal<PageContent[]>([]);
   products = signal<Product[]>([]);
@@ -266,12 +261,10 @@ export class SupabaseService {
     const SUPABASE_URL = process.env['SUPABASE_URL'] || '';
     const SUPABASE_KEY = process.env['SUPABASE_KEY'] || '';
 
-    // If no keys, immediately go to Offline/Local Mode
+    // STRICT CHECK: No keys, no app.
     if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.includes('your-project')) {
-      console.warn('SYSTEM: Supabase keys missing. Switching to Local Storage Mode.');
-      this.isOfflineMode.set(true);
-      this.connectionError.set('Offline Mode: Using Local Storage');
-      this.bootLocalSystem();
+      console.error('SYSTEM: Supabase keys missing. Halting initialization.');
+      this.systemStatus.set('MISSING_KEYS');
       return;
     }
 
@@ -281,8 +274,8 @@ export class SupabaseService {
       this.bootSystem();
     } catch (err: any) {
       console.error('SYSTEM: Client Init Error', err);
-      this.isOfflineMode.set(true);
-      this.bootLocalSystem();
+      this.connectionError.set(err.message);
+      this.systemStatus.set('CONNECTION_ERROR');
     }
   }
 
@@ -318,21 +311,14 @@ export class SupabaseService {
     
     this.currentUser.set(user);
     this.isAdmin.set(true);
-    // If online, fetch fresh data
-    if(!this.isOfflineMode()) this.fetchAllData(); 
+    // Refresh data on auth change
+    if(this.systemStatus() === 'READY') this.fetchAllData(); 
   }
 
   async loginWithPassword(email: string, password: string): Promise<{error: string | null}> {
-    // Offline Mock Login
-    if (this.isOfflineMode()) {
-        if (email === 'admin@maison.com' && password === 'admin') {
-            this.hydrateUser({ id: 'local-admin', email: 'admin@maison.com' });
-            return { error: null };
-        }
-        return { error: 'Invalid offline credentials (try admin@maison.com / admin)' };
-    }
+    if (!this.supabase) return { error: 'System Error: No Database Connection' };
 
-    const { data, error } = await this.supabase!.auth.signInWithPassword({
+    const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -346,11 +332,11 @@ export class SupabaseService {
   }
 
   async loginWithGoogle() {
-     if (this.isOfflineMode()) {
-         alert('Google Login not available in offline mode.');
+     if (!this.supabase) {
+         alert('System Error: No Database Connection');
          return;
      }
-     const { data, error } = await this.supabase!.auth.signInWithOAuth({
+     const { data, error } = await this.supabase.auth.signInWithOAuth({
        provider: 'google',
        options: {
          redirectTo: window.location.origin + '/admin'
@@ -363,44 +349,12 @@ export class SupabaseService {
   async logout() {
     this.isAdmin.set(false);
     this.currentUser.set(null);
-    if (!this.isOfflineMode()) {
-        await this.supabase!.auth.signOut();
-    }
-  }
-
-  // --- LOCAL STORAGE HELPERS ---
-  private getLocal<T>(key: string, defaultVal: T): T {
-    try {
-        const stored = localStorage.getItem('maison_' + key);
-        return stored ? JSON.parse(stored) : defaultVal;
-    } catch (e) {
-        return defaultVal;
-    }
-  }
-
-  private setLocal(key: string, data: any) {
-    try {
-        localStorage.setItem('maison_' + key, JSON.stringify(data));
-    } catch (e) {
-        console.error('LocalStorage Write Error', e);
+    if (this.supabase) {
+        await this.supabase.auth.signOut();
     }
   }
 
   // --- SYSTEM BOOT ---
-  private bootLocalSystem() {
-    // Load from local storage, or use SEED constants if local is empty
-    this.settings.set(this.getLocal('settings', SEED_SETTINGS));
-    this.pages.set(this.getLocal('pages', SEED_PAGES));
-    this.products.set(this.getLocal('products', SEED_PRODUCTS));
-    this.categories.set(this.getLocal('categories', SEED_CATEGORIES));
-    this.heroSlides.set(this.getLocal('hero_slides', SEED_SLIDES));
-    this.messages.set(this.getLocal('messages', []));
-    this.reviews.set(this.getLocal('reviews', []));
-    this.analytics.set(this.getLocal('analytics', []));
-    
-    this.initialized.set(true);
-  }
-
   private async bootSystem() {
     this.connectionError.set(null);
     try {
@@ -408,92 +362,86 @@ export class SupabaseService {
       const { data: settingsData, error } = await this.supabase!.from('settings').select('*').limit(1);
       
       if (error || !settingsData || settingsData.length === 0) {
-         console.warn("SYSTEM: Database empty or unreachable. attempting Auto-Seed or Local Fallback.");
+         console.warn("SYSTEM: Database empty or unreachable. attempting Auto-Seed.");
+         // Only seed if fetch worked but returned empty. If error, throw.
          if (settingsData && settingsData.length === 0) {
             await this.performAutoSeed();
          } else {
-            throw new Error("Supabase connection failed");
+            throw error || new Error("Connection failed");
          }
       } else {
          await this.fetchAllData();
+         this.systemStatus.set('READY');
       }
-      
-      this.initialized.set(true);
     } catch (err: any) {
-      console.warn("SYSTEM: Switching to Offline/Local Mode due to error:", err.message);
-      this.isOfflineMode.set(true);
-      this.bootLocalSystem();
+      console.error("SYSTEM: Boot Failed", err);
+      this.connectionError.set(err.message || 'Failed to connect to Supabase');
+      this.systemStatus.set('CONNECTION_ERROR');
     }
   }
 
   // --- SEEDING (One-Way) ---
   private async performAutoSeed() {
-    this.seedingStatus.set('Seeding Global Settings...');
+    this.systemStatus.set('SEEDING');
+    this.seedingStatus.set('Initializing Cloud Vault...');
     try {
+      // Order matters for relational integrity
       await this.supabase!.from('settings').insert(SEED_SETTINGS);
       
       this.seedingStatus.set('Seeding CMS Content...');
       await this.supabase!.from('pages').insert(SEED_PAGES);
 
-      // Seed categories
       await this.supabase!.from('categories').insert(SEED_CATEGORIES);
-      
-      // Seed Slides
       await this.supabase!.from('hero_slides').insert(SEED_SLIDES);
-
-      // Seed Sample Products
       await this.supabase!.from('products').insert(SEED_PRODUCTS);
 
       await this.fetchAllData();
       this.seedingStatus.set(null);
+      this.systemStatus.set('READY');
     } catch (err: any) {
+      console.error("Seeding Failed", err);
       this.connectionError.set(`Seeding Failed: ${err.message}`);
-      // Fallback
-      this.bootLocalSystem();
+      this.systemStatus.set('CONNECTION_ERROR');
     }
   }
 
   async forceResync() {
-    if (this.isOfflineMode()) {
-        // Reset Local Storage to Seeds
-        localStorage.clear();
-        this.bootLocalSystem();
-        alert('Local Storage Reset to Factory Defaults.');
-        return;
+    if (!this.supabase) return;
+    if (confirm('WARNING: This will attempt to re-seed default data. Continue?')) {
+        await this.performAutoSeed();
     }
-    await this.performAutoSeed();
   }
 
   // --- DATA FETCHING ---
   private async fetchAllData() {
-    if (this.isOfflineMode()) return;
+    if (!this.supabase) return;
 
     try {
         const [settings, products, cats, slides, pages, reviews, analytics] = await Promise.all([
-            this.supabase!.from('settings').select('*').single(),
-            this.supabase!.from('products').select('*').order('created_at', { ascending: false }),
-            this.supabase!.from('categories').select('*'),
-            this.supabase!.from('hero_slides').select('*'),
-            this.supabase!.from('pages').select('*'),
-            this.supabase!.from('reviews').select('*'),
-            this.supabase!.from('analytics_events').select('*').order('timestamp', { ascending: false }).limit(500)
+            this.supabase.from('settings').select('*').single(),
+            this.supabase.from('products').select('*').order('created_at', { ascending: false }),
+            this.supabase.from('categories').select('*'),
+            this.supabase.from('hero_slides').select('*'),
+            this.supabase.from('pages').select('*'),
+            this.supabase.from('reviews').select('*'),
+            this.supabase.from('analytics_events').select('*').order('timestamp', { ascending: false }).limit(500)
         ]);
 
-        if (settings.data) { this.settings.set(settings.data); this.setLocal('settings', settings.data); }
-        if (products.data) { this.products.set(products.data); this.setLocal('products', products.data); }
-        if (cats.data) { this.categories.set(cats.data); this.setLocal('categories', cats.data); }
-        if (slides.data) { this.heroSlides.set(slides.data); this.setLocal('hero_slides', slides.data); }
-        if (pages.data) { this.pages.set(pages.data); this.setLocal('pages', pages.data); }
-        if (reviews.data) { this.reviews.set(reviews.data); this.setLocal('reviews', reviews.data); }
-        if (analytics.data) { this.analytics.set(analytics.data); this.setLocal('analytics', analytics.data); }
+        if (settings.data) this.settings.set(settings.data);
+        if (products.data) this.products.set(products.data);
+        if (cats.data) this.categories.set(cats.data);
+        if (slides.data) this.heroSlides.set(slides.data);
+        if (pages.data) this.pages.set(pages.data);
+        if (reviews.data) this.reviews.set(reviews.data);
+        if (analytics.data) this.analytics.set(analytics.data);
 
         if (this.isAdmin()) {
-            const { data: msgs } = await this.supabase!.from('messages').select('*').order('date', { ascending: false });
-            if (msgs) { this.messages.set(msgs); this.setLocal('messages', msgs); }
+            const { data: msgs } = await this.supabase.from('messages').select('*').order('date', { ascending: false });
+            if (msgs) this.messages.set(msgs);
         }
     } catch (err) {
-        console.error("Fetch Error - falling back to local", err);
-        this.bootLocalSystem(); // Fallback if a fetch fails mid-session
+        console.error("Fetch Error", err);
+        throw err; // Propagate to bootSystem
     }
   }
 
@@ -504,179 +452,90 @@ export class SupabaseService {
 
   getProduct(id: string) { return this.products().find(p => p.id === id); }
 
-  // --- CRUD OPERATIONS (Hybrid) ---
+  // --- CRUD OPERATIONS ---
   
-  // Settings
   async updateSettings(newSettings: Partial<Settings>) {
       const updated = { ...this.settings(), ...newSettings } as Settings;
       this.settings.set(updated);
-      this.setLocal('settings', updated);
-
-      if (!this.isOfflineMode()) {
-        await this.supabase!.from('settings').update(newSettings).eq('id', this.settings()!.id);
-      }
+      if (this.supabase) await this.supabase.from('settings').update(newSettings).eq('id', this.settings()!.id);
   }
 
-  // Pages (CMS)
   async updatePage(slug: string, updates: Partial<PageContent>) {
       const updatedList = this.pages().map(x => x.slug === slug ? { ...x, ...updates } : x);
       this.pages.set(updatedList);
-      this.setLocal('pages', updatedList);
-
-      if (!this.isOfflineMode()) {
-        await this.supabase!.from('pages').update(updates).eq('slug', slug);
-      }
+      if (this.supabase) await this.supabase.from('pages').update(updates).eq('slug', slug);
   }
 
-  // Products
   async addProduct(product: any) { 
-      // Optimistic Update
-      const newProd = { ...product, id: `local_${Date.now()}`, created_at: new Date().toISOString() };
-      
-      if (!this.isOfflineMode()) {
-         const {data} = await this.supabase!.from('products').insert(product).select().single();
-         if(data) {
-             this.products.update(p => [data, ...p]);
-             this.setLocal('products', this.products());
-             return;
-         }
-      }
-      
-      // Offline fallback
-      this.products.update(p => [newProd, ...p]);
-      this.setLocal('products', this.products());
+     if (!this.supabase) return;
+     const {data} = await this.supabase.from('products').insert(product).select().single();
+     if(data) this.products.update(p => [data, ...p]);
   }
 
   async updateProduct(id: string, updates: any) {
       this.products.update(p => p.map(x => x.id === id ? {...x, ...updates} : x));
-      this.setLocal('products', this.products());
-
-      if (!this.isOfflineMode()) {
-        await this.supabase!.from('products').update(updates).eq('id', id);
-      }
+      if (this.supabase) await this.supabase.from('products').update(updates).eq('id', id);
   }
 
   async deleteProduct(id: string) {
       this.products.update(p => p.filter(x => x.id !== id));
-      this.setLocal('products', this.products());
-
-      if (!this.isOfflineMode()) {
-        await this.supabase!.from('products').delete().eq('id', id);
-      }
+      if (this.supabase) await this.supabase.from('products').delete().eq('id', id);
   }
 
-  // Categories
   async addCategory(cat: any) {
-    const newCat = { ...cat, id: `cat_${Date.now()}` };
-    
-    if (!this.isOfflineMode()) {
-        const {data} = await this.supabase!.from('categories').insert(cat).select().single();
-        if(data) {
-            this.categories.update(c => [...c, data]);
-            this.setLocal('categories', this.categories());
-            return;
-        }
-    }
-
-    this.categories.update(c => [...c, newCat]);
-    this.setLocal('categories', this.categories());
+    if (!this.supabase) return;
+    const {data} = await this.supabase.from('categories').insert(cat).select().single();
+    if(data) this.categories.update(c => [...c, data]);
   }
+
   async updateCategory(id: string, updates: any) {
     this.categories.update(c => c.map(x => x.id === id ? {...x, ...updates} : x));
-    this.setLocal('categories', this.categories());
-
-    if (!this.isOfflineMode()) {
-        await this.supabase!.from('categories').update(updates).eq('id', id);
-    }
+    if (this.supabase) await this.supabase.from('categories').update(updates).eq('id', id);
   }
 
-  // Slides
   async addSlide(slide: any) {
-      const newSlide = { ...slide, id: `slide_${Date.now()}` };
-      
-      if(!this.isOfflineMode()) {
-          const {data} = await this.supabase!.from('hero_slides').insert(slide).select().single();
-          if(data) {
-              this.heroSlides.update(s => [...s, data]);
-              this.setLocal('hero_slides', this.heroSlides());
-              return;
-          }
-      }
-      this.heroSlides.update(s => [...s, newSlide]);
-      this.setLocal('hero_slides', this.heroSlides());
+      if(!this.supabase) return;
+      const {data} = await this.supabase.from('hero_slides').insert(slide).select().single();
+      if(data) this.heroSlides.update(s => [...s, data]);
   }
+  
   async deleteSlide(id: string) {
        this.heroSlides.update(s => s.filter(x => x.id !== id));
-       this.setLocal('hero_slides', this.heroSlides());
-       if (!this.isOfflineMode()) {
-           await this.supabase!.from('hero_slides').delete().eq('id', id);
-       }
+       if (this.supabase) await this.supabase.from('hero_slides').delete().eq('id', id);
   }
 
-  // Storage
   async uploadFile(file: File) {
-    // Offline Mock
-    if (this.isOfflineMode()) {
-        return URL.createObjectURL(file);
-    }
-
+    if (!this.supabase) return null;
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const { error } = await this.supabase!.storage.from('maison-assets').upload(fileName, file);
+    const { error } = await this.supabase.storage.from('maison-assets').upload(fileName, file);
     if (error) {
         console.error('Upload Error', error);
         return null;
     }
-    const { data } = this.supabase!.storage.from('maison-assets').getPublicUrl(fileName);
+    const { data } = this.supabase.storage.from('maison-assets').getPublicUrl(fileName);
     return data.publicUrl;
   }
 
-  // --- ANALYTICS ---
   async trackEvent(type: AnalyticsEvent['type'], path: string, targetId?: string, metadata?: any) {
-    const event: AnalyticsEvent = {
-        type,
-        path,
-        targetId,
-        metadata,
-        timestamp: new Date().toISOString()
-    };
+    const event: AnalyticsEvent = { type, path, targetId, metadata, timestamp: new Date().toISOString() };
     this.analytics.update(a => [event, ...a]);
-    this.setLocal('analytics', this.analytics());
-
-    if (!this.isOfflineMode()) {
-        await this.supabase!.from('analytics_events').insert(event);
-    }
+    if (this.supabase) await this.supabase.from('analytics_events').insert(event);
   }
 
-  // --- MESSAGES & REVIEWS ---
   async sendMessage(msg: any) { 
       const newMsg = { ...msg, read: false, date: new Date().toISOString() };
-      this.messages.update(m => [newMsg, ...m]); // Local update for testing
-      
-      if (!this.isOfflineMode()) {
-          await this.supabase!.from('messages').insert(newMsg);
-      }
+      if (this.supabase) await this.supabase.from('messages').insert(newMsg);
   }
 
   async markMessageRead(id: string) {
     this.messages.update(m => m.map(x => x.id === id ? {...x, read: true} : x));
-    this.setLocal('messages', this.messages());
-    if(!this.isOfflineMode()) {
-        await this.supabase!.from('messages').update({read:true}).eq('id', id);
-    }
+    if(this.supabase) await this.supabase.from('messages').update({read:true}).eq('id', id);
   }
 
   async addReview(review: any) {
-     const newReview = {...review, id: `rev_${Date.now()}`, date: new Date().toISOString()};
-     this.reviews.update(r => [newReview, ...r]);
-     this.setLocal('reviews', this.reviews());
-     
-     if (!this.isOfflineMode()) {
-        const {data} = await this.supabase!.from('reviews').insert({...review, date: new Date().toISOString()}).select().single();
-        if(data) {
-            // Replace optimistic with real
-             this.reviews.update(r => [data, ...r.filter(x => x.id !== newReview.id)]);
-        }
-     }
+     if (!this.supabase) return;
+     const {data} = await this.supabase.from('reviews').insert({...review, date: new Date().toISOString()}).select().single();
+     if(data) this.reviews.update(r => [data, ...r]);
   }
 }

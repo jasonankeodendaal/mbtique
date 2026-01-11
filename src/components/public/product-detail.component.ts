@@ -1,5 +1,5 @@
 import { Component, inject, computed, signal, effect, OnInit } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink, ParamMap } from '@angular/router';
 import { SupabaseService, Review } from '../../services/supabase.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs/operators';
@@ -106,7 +106,7 @@ import { FormsModule } from '@angular/forms';
              <div id="reviews-section" class="border-t border-stone-200 pt-12">
                 <div class="flex justify-between items-end mb-8">
                    <h3 class="font-serif text-3xl text-stone-900">Impressions</h3>
-                   <button (click)="showReviewForm = !showReviewForm" class="text-[10px] uppercase tracking-[0.2em] font-bold border-b-2 border-stone-900 pb-1 hover:text-yellow-600 hover:border-yellow-600 transition-colors">
+                   <button (click)="showReviewForm = !showReviewForm" class="text-[10px] uppercase tracking-[0.2em] font-bold border-b-2 border-stone-900 pb-1 hover:text-yellow-600 hover:text-yellow-600 hover:border-yellow-600 transition-colors">
                       {{ showReviewForm ? 'Cancel' : 'Write Review' }}
                    </button>
                 </div>
@@ -153,7 +153,7 @@ export class ProductDetailComponent {
   // FIX: Explicitly type ActivatedRoute
   route: ActivatedRoute = inject(ActivatedRoute);
 
-  productId = toSignal(this.route.paramMap.pipe(map(params => params.get('id'))));
+  productId = toSignal(this.route.paramMap.pipe(map((params: ParamMap) => params.get('id'))));
   
   product = computed(() => {
     const id = this.productId();
@@ -169,7 +169,9 @@ export class ProductDetailComponent {
         if (p) {
             this.activeImage.set(p.image);
             // Track View
-            this.supabase.trackEvent('product_view', '/product/' + p.id, p.id);
+            if (p.id) {
+                this.supabase.trackEvent('product_view', '/product/' + p.id, p.id);
+            }
         }
     });
   }
